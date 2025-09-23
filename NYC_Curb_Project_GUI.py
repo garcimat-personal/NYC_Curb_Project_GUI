@@ -242,7 +242,7 @@ with col_left:
                 for f in range(int(frame_idx) - tolerance, int(frame_idx) + tolerance + 1):
                     events_now.extend(by_frame.get(f, []))
             annotated = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
-            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_column_width=True)
+            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
     else:
         st.info("Upload a video to begin.")
 
