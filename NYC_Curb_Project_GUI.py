@@ -143,6 +143,23 @@ def group_by_frame(events_with_frames: list) -> dict:
             by_frame[e["frame_idx"]].append(e)
     return by_frame
 
+def frame_to_ms(frame_idx: int, video_start_ms: int, fps: float) -> int:
+    try:
+        if fps <= 0:
+            return int(video_start_ms)
+        return int(video_start_ms + (int(frame_idx) / float(fps)) * 1000)
+    except Exception:
+        return int(video_start_ms)
+
+def ms_to_frame(timestamp_ms: int, video_start_ms: int, fps: float) -> int:
+    try:
+        if fps <= 0:
+            return 0
+        dt_ms = int(timestamp_ms) - int(video_start_ms)
+        return int(round((dt_ms / 1000.0) * float(fps)))
+    except Exception:
+        return 0
+
 def read_frame(video_path: str, frame_idx: int):
     """Read a frame using a persistent VideoCapture for smoother playback."""
     cap = st.session_state.get('cap', None)
@@ -249,7 +266,7 @@ if meta is not None and raw_events:
     by_frame = group_by_frame(mapped_events)
 
 # Layout
-col_left, col_right = st.columns([1, 1])
+col_left, col_right = st.columns([3, 1])
 
 with col_left:
     st.subheader("Video & Annotations")
@@ -330,8 +347,26 @@ with col_left:
                     st.session_state['current_frame'] = int(target)
                     (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
 
+        # Jump to absolute time in epoch ms
+        with st.container():
+            abs_cols = st.columns([2, 1])
+            cur_ms = frame_to_ms(int(st.session_state.get('current_frame', 0)), int(video_start_ms), float(fps))
+            with abs_cols[0]:
+                jump_epoch_ms = st.number_input(
+                    "Jump to time (ms since epoch)",
+                    min_value=0,
+                    value=int(cur_ms),
+                    step=10,
+                    help="Absolute epoch milliseconds for the desired frame.",
+                )
+            with abs_cols[1]:
+                if st.button("Go (absolute)", use_container_width=True):
+                    target = ms_to_frame(int(jump_epoch_ms), int(video_start_ms), float(fps))
+                    target = max(0, min(int(target), max(0, frame_count - 1)))
+                    st.session_state['current_frame'] = int(target)
+                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+
         # Display the computed epoch time for the current frame
-        cur_ms = frame_to_ms(int(st.session_state.get('current_frame', 0)), int(video_start_ms), float(fps))
         st.caption(f"Current frame time: {cur_ms} ms since epoch")
 
         # Read and annotate current frame
@@ -404,6 +439,30 @@ with col_right:
             ]
             cols = [c for c in front_cols if c in df.columns] + [c for c in df.columns if c not in front_cols]
             st.dataframe(df[cols], use_container_width=True, hide_index=True)
+        
+        # --- All events list & navigation ---
+        st.markdown("### All events")
+        all_df = pd.DataFrame(mapped_events)
+        if not all_df.empty:
+            # Prefer a concise ordering
+            if 'frame_idx' in all_df.columns:
+                all_df = all_df.sort_values(['frame_idx', 'event_time'] if 'event_time' in all_df.columns else ['frame_idx'])
+            st.dataframe(all_df, use_container_width=True, hide_index=True)
+            # Click-to-navigate via selectbox
+            event_options = list(enumerate(all_df.to_dict(orient='records')))
+            def _fmt(opt):
+                i, e = opt
+                f = e.get('frame_idx', '?')
+                et = e.get('event_type', 'event')
+                gid = e.get('global_id', '')
+                eid = e.get('event_id', '')
+                return f"[{f}] {et}  id={eid or gid}"
+            sel = st.selectbox("Select an event to navigate", options=event_options, format_func=_fmt, index=0 if event_options else None)
+            if st.button("Go to selected event", use_container_width=True, disabled=not bool(event_options)):
+                _, e = sel
+                target = int(e.get('frame_idx', 0))
+                st.session_state['current_frame'] = max(0, int(target))
+                (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
         else:
             st.write("No events for the current selection.")
     else:
