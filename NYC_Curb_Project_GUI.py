@@ -313,6 +313,23 @@ with col_left:
                     st.session_state['current_frame'] = int(target)
                     (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
 
+        # Jump by offset from video start (ms)
+        with st.container():
+            off_cols = st.columns([2, 1])
+            with off_cols[0]:
+                jump_offset_ms = st.number_input(
+                    "Jump to offset (ms from video start)",
+                    min_value=0,
+                    value=0,
+                    step=10,
+                    help="Relative milliseconds from the configured video start.",
+                )
+            with off_cols[1]:
+                if st.button("Go (offset)", use_container_width=True):
+                    target = max(0, min(int(round((int(jump_offset_ms)/1000.0) * float(fps))), max(0, frame_count - 1)))
+                    st.session_state['current_frame'] = int(target)
+                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+
         # Display the computed epoch time for the current frame
         cur_ms = frame_to_ms(int(st.session_state.get('current_frame', 0)), int(video_start_ms), float(fps))
         st.caption(f"Current frame time: {cur_ms} ms since epoch")
