@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <job>
+      <id>2907126</id>
+      <size>1</size>
+      <mode>annotation</mode>
+      <overlap>0</overlap>
+      <bugtracker></bugtracker>
+      <created>2025-08-27 23:58:27.866576+00:00</created>
+      <updated>2025-08-28 00:06:00.843622+00:00</updated>
+      <subset>default</subset>
+      <start_frame>0</start_frame>
+      <stop_frame>0</stop_frame>
+      <frame_filter></frame_filter>
+      <segments>
+        <segment>
+          <id>2909006</id>
+          <start>0</start>
+          <stop>0</stop>
+          <url>https://app.cvat.ai/api/jobs/2907126</url>
+        </segment>
+      </segments>
+      <owner>
+        <username>cielsun042</username>
+        <email>cielsun042@yahoo.com</email>
+      </owner>
+      <assignee></assignee>
+      <labels>
+        <label>
+          <name>parking</name>
+          <color>#4020e0</color>
+          <type>polygon</type>
+          <attributes>
+          </attributes>
+        </label>
+        <label>
+          <name>travel_lane</name>
+          <color>#39535d</color>
+          <type>polygon</type>
+          <attributes>
+          </attributes>
+        </label>
+        <label>
+          <name>buffer_zone</name>
+          <color>#bbb025</color>
+          <type>any</type>
+          <attributes>
+          </attributes>
+        </label>
+        <label>
+          <name>bike_lane</name>
+          <color>#718467</color>
+          <type>any</type>
+          <attributes>
+          </attributes>
+        </label>
+      </labels>
+    </job>
+    <dumped>2025-08-28 18:28:27.156592+00:00</dumped>
+  </meta>
+  <track id="0" label="parking" source="manual">
+    <polygon frame="0" keyframe="1" outside="0" occluded="0" points="0.00,399.20;244.80,322.30;470.00,272.70;684.10,234.80;1044.70,184.50;985.10,163.40;746.80,184.60;516.50,207.20;233.20,257.00;0.60,318.10;0.40,356.20" z_order="0">
+    </polygon>
+  </track>
+  <track id="1" label="parking" source="manual">
+    <polygon frame="0" keyframe="1" outside="0" occluded="0" points="1280.00,296.70;1163.94,383.70;988.18,489.15;864.50,552.20;679.10,437.10;1040.30,320.67;1231.82,250.36;1280.00,269.87" z_order="0">
+    </polygon>
+  </track>
+  <track id="2" label="bike_lane" source="manual">
+    <polygon frame="0" keyframe="1" outside="0" occluded="0" points="1280.00,356.13;1185.76,452.79;985.76,603.09;782.00,719.70;904.42,720.00;1027.28,720.00;1208.06,593.52;1280.00,497.32" z_order="0">
+    </polygon>
+  </track>
+  <track id="3" label="buffer_zone" source="manual">
+    <polygon frame="0" keyframe="1" outside="0" occluded="0" points="1280.00,296.70;1280.00,296.70;1163.94,383.70;988.18,489.15;864.50,552.20;679.10,437.10;0.00,640.44;0.00,720.00;739.31,720.00;782.00,719.70;985.76,603.09;1185.76,452.79;1280.00,356.13;1280.00,356.13" z_order="0">
+    </polygon>
+  </track>
+  <track id="4" label="travel_lane" source="manual">
+    <polygon frame="0" keyframe="1" outside="0" occluded="0" points="0.00,640.44;0.00,640.44;0.20,399.10;245.20,322.30;470.00,272.70;684.10,234.80;1044.70,184.50;1231.82,250.36;1040.30,320.67;679.10,437.10;0.00,640.44" z_order="0">
+    </polygon>
+  </track>
+</annotations>
