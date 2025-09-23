@@ -180,6 +180,18 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             cv2.putText(out, label, (int(x1), max(0, int(y1) - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
     return out
 
+
+def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
+    if fps <= 0:
+        return 0
+    return int(round(((int(ts_ms) - int(start_ms)) / 1000.0) * float(fps)))
+
+
+def frame_to_ms(frame_idx: int, start_ms: int, fps: float) -> int:
+    if fps <= 0:
+        return int(start_ms)
+    return int(start_ms) + int(round((int(frame_idx) / float(fps)) * 1000.0))
+
 # -------------------------------
 # UI
 # -------------------------------
@@ -282,6 +294,28 @@ with col_left:
             )
         with st.expander("Raw video player (no overlays)", expanded=False):
             st.video(video_path)
+
+        # Jump to frame by time (ms)
+        with st.container():
+            jump_cols = st.columns([2, 1])
+            with jump_cols[0]:
+                jump_time_ms = st.number_input(
+                    "Jump to time (ms since epoch)",
+                    min_value=0,
+                    value=int(video_start_ms),
+                    step=100,
+                    help="Maps an absolute epoch-millisecond timestamp to a frame using the video start timestamp and FPS.",
+                )
+            with jump_cols[1]:
+                if st.button("Go", use_container_width=True):
+                    target = ms_to_frame(int(jump_time_ms), int(video_start_ms), float(fps))
+                    target = max(0, min(int(target), max(0, frame_count - 1)))
+                    st.session_state['current_frame'] = int(target)
+                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+
+        # Display the computed epoch time for the current frame
+        cur_ms = frame_to_ms(int(st.session_state.get('current_frame', 0)), int(video_start_ms), float(fps))
+        st.caption(f"Current frame time: {cur_ms} ms since epoch")
 
         # Read and annotate current frame
         current_frame = int(st.session_state.get('current_frame', int(frame_idx)))
