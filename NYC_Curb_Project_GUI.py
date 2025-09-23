@@ -14,13 +14,6 @@ import os
 import time
 from collections import defaultdict
 from datetime import datetime
-import xml.etree.ElementTree as ET
-from urllib.request import urlopen, Request
-# Optional: click-on-image to capture coordinates
-try:
-    from streamlit_image_coordinates import streamlit_image_coordinates
-except Exception:
-    streamlit_image_coordinates = None
 
 # -------------------------------
 # App configuration
@@ -40,10 +33,6 @@ if 'looping' not in st.session_state:
     st.session_state.looping = False
 if 'loop_range' not in st.session_state:
     st.session_state.loop_range = (0, 0)
-if 'notes' not in st.session_state:
-    st.session_state.notes = []  # list of dicts: {frame_idx, event_id, note, created_at}
-if 'selected_event' not in st.session_state:
-    st.session_state.selected_event = None  # {'frame_idx', 'event_id', 'global_id', ...}
 
 # Example tracking data in JSONL format (one JSON object per line)
 DEFAULT_EVENTS_JSONL = """
@@ -330,72 +319,21 @@ def read_frame(video_path: str, frame_idx: int):
         return None
     return frame  # BGR
 
-def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True, highlight_event_id: str | None = None) -> np.ndarray:
+def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) -> np.ndarray:
     out = frame_bgr.copy()
     for e in events:
         x1, y1, x2, y2 = e.get("bbox_x1"), e.get("bbox_y1"), e.get("bbox_x2"), e.get("bbox_y2")
         if None in (x1, y1, x2, y2):
             continue
+        # Choose a deterministic color by global_id
         gid = int(e.get("global_id", 0))
+        # Simple color hashing
         color = ((37 * gid) % 255, (17 * gid) % 255, (97 * gid) % 255)  # BGR
-        # Highlight if selected
-        ev_id = str(e.get("event_id") or e.get("global_id") or "")
-        thickness = 4 if (highlight_event_id is not None and str(highlight_event_id) == ev_id) else 2
-        cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, int(thickness))
+        cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
         if show_labels:
             label = f"{e.get('event_type','')}: {e.get('confidence', 0):.2f}"
             cv2.putText(out, label, (int(x1), max(0, int(y1) - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
     return out
-
-def pick_event_by_point(events: list, x: int, y: int):
-    """Return the event whose bbox contains (x,y). Prefer the smallest area if multiple overlap."""
-    candidates = []
-    for e in events:
-        x1, y1, x2, y2 = e.get("bbox_x1"), e.get("bbox_y1"), e.get("bbox_x2"), e.get("bbox_y2")
-        if None in (x1, y1, x2, y2):
-            continue
-        if int(x1) <= x <= int(x2) and int(y1) <= y <= int(y2):
-            area = max(1, (int(x2) - int(x1)) * (int(y2) - int(y1)))
-            candidates.append((area, e))
-    if not candidates:
-        return None
-    candidates.sort(key=lambda t: t[0])
-    return candidates[0][1]
-
-def overlay_polygons(frame_bgr: np.ndarray, polys: list, alpha: float = 0.3, edge_thickness: int = 2) -> np.ndarray:
-    out = frame_bgr.copy()
-    overlay = out.copy()
-    for poly in polys:
-        pts = np.array(poly.get('points', []), dtype=np.int32)
-        if pts.shape[0] < 3:
-            continue
-        hex_color = (poly.get('color') or '#00FF00').lstrip('#')
-        try:
-            r = int(hex_color[0:2], 16); g = int(hex_color[2:4], 16); b = int(hex_color[4:6], 16)
-        except Exception:
-            r, g, b = 0, 255, 0
-        cv2.fillPoly(overlay, [pts], color=(b, g, r))
-        if edge_thickness > 0:
-            cv2.polylines(overlay, [pts], isClosed=True, color=(b, g, r), thickness=int(edge_thickness), lineType=cv2.LINE_AA)
-    cv2.addWeighted(overlay, float(alpha), out, 1.0 - float(alpha), 0, dst=out)
-    return out
-
-def fetch_url_text(url: str) -> str:
-    req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    with urlopen(req) as resp:
-        return resp.read().decode('utf-8', errors='ignore')
-
-def record_note(frame_idx: int, event: dict, note_text: str, video_start_ms: int, fps: float):
-    ts_ms = frame_to_ms(int(frame_idx), int(video_start_ms), float(fps)) if fps else None
-    st.session_state.notes.append({
-        'frame_idx': int(frame_idx),
-        'timestamp_ms': int(ts_ms) if ts_ms is not None else None,
-        'event_id': event.get('event_id'),
-        'global_id': event.get('global_id'),
-        'event_type': event.get('event_type'),
-        'note': note_text,
-        'created_at': datetime.utcnow().isoformat() + 'Z',
-    })
 
 
 def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
@@ -433,10 +371,8 @@ with st.sidebar:
     with st.expander("Annotations (CVAT XML)", expanded=False):
         xml_file = st.file_uploader("Upload CVAT XML", type=["xml"])    
         xml_url = st.text_input("Or GitHub raw URL to XML", value="", help="Paste the raw URL to the XML file in your GitHub repo.")
-        show_polygons = st.checkbox("Show CVAT polygons", value=True)
         poly_alpha = st.slider("Polygon fill opacity", 0.0, 1.0, 0.35, 0.05)
         poly_edge_thickness = st.number_input("Polygon edge thickness", min_value=0, max_value=10, value=2, step=1)
-        poly_all_frames = st.checkbox("Show polygons on all frames", value=True, help="Draw all parsed polygons on every frame (ignores per-frame indices).")
         poly_all_frames = st.checkbox("Show polygons on all frames", value=True, help="Draw all parsed polygons on every frame (ignores per-frame indices).")
 
 # Load / save video
@@ -615,12 +551,7 @@ with col_left:
                 # exact or within tolerance
                 for f in range(int(current_frame) - tolerance, int(current_frame) + tolerance + 1):
                     events_now.extend(by_frame.get(f, []))
-            # Highlight selected event (if it belongs to this frame)
-            sel = st.session_state.get('selected_event')
-            highlight_id = None
-            if sel is not None and int(sel.get('frame_idx', -1)) == int(current_frame):
-                highlight_id = sel.get('event_id') or sel.get('global_id')
-            canvas = draw_boxes(frame_bgr, events_now, show_labels=show_labels, highlight_event_id=highlight_id)
+            canvas = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
             # CVAT polygon overlays
             if show_polygons and (cvat_polys_by_frame or cvat_polys_all):
                 if 'poly_all_frames' in locals() and poly_all_frames:
@@ -629,53 +560,7 @@ with col_left:
                     polys_to_draw = cvat_polys_by_frame.get(int(current_frame), []) if cvat_polys_by_frame else []
                 if polys_to_draw:
                     canvas = overlay_polygons(canvas, polys_to_draw, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
-            display_rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
-            click_value = None
-            if streamlit_image_coordinates is not None:
-                click_value = streamlit_image_coordinates(display_rgb, key=f"coords_{current_frame}")
-            else:
-                st.image(display_rgb, use_container_width=True)
-            # If user clicked on the image, map to original coords and pick containing box
-            if click_value and all(k in click_value for k in ("x","y","width","height")):
-                disp_w, disp_h = max(1, int(click_value['width'])), max(1, int(click_value['height']))
-                scale_x = float(width) / float(disp_w)
-                scale_y = float(height) / float(disp_h)
-                px = int(round(click_value['x'] * scale_x))
-                py = int(round(click_value['y'] * scale_y))
-                chosen = pick_event_by_point(events_now, px, py)
-                if chosen is not None:
-                    chosen = dict(chosen)
-                    chosen['frame_idx'] = int(current_frame)
-                    st.session_state.selected_event = chosen
-                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-
-            # --- Quick note for selected box (click-to-select) ---
-            st.markdown("### Quick note")
-            if streamlit_image_coordinates is None:
-                st.info("Install `streamlit-image-coordinates` to enable click-to-select: `pip install streamlit-image-coordinates`.")
-            sel = st.session_state.get('selected_event')
-            if sel is not None and int(sel.get('frame_idx', -1)) == int(current_frame):
-                eid = sel.get('event_id') or str(sel.get('global_id')) or 'unknown'
-                st.caption(f"Selected: frame {current_frame} · id={eid} · bbox=({sel.get('bbox_x1')},{sel.get('bbox_y1')})-({sel.get('bbox_x2')},{sel.get('bbox_y2')})")
-                qn = st.text_input("Note", key=f"qnote_{current_frame}_{eid}")
-                if st.button("Save quick note", key=f"qnote_save_{current_frame}_{eid}"):
-                    txt = (qn or '').strip()
-                    if txt:
-                        record_note(int(current_frame), sel, txt, int(video_start_ms), float(fps))
-                        st.session_state[f"qnote_{current_frame}_{eid}"] = ''
-                        (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-            else:
-                st.caption("Click a box on the frame to select it.")
-
-            # --- Notes table ---
-            st.markdown("### Notes")
-            if st.session_state.get('notes'):
-                notes_df = pd.DataFrame(st.session_state['notes'])
-                st.dataframe(notes_df.sort_values(['frame_idx','created_at']), use_container_width=True, hide_index=True)
-                csv = notes_df.to_csv(index=False).encode('utf-8')
-                st.download_button("Download notes CSV", data=csv, file_name="notes.csv", mime="text/csv")
-            else:
-                st.caption("No notes yet. Add one using the controls above.")
+            st.image(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB), use_container_width=True)
 
             # Advance playback if enabled
             if st.session_state.playing and fps > 0:
