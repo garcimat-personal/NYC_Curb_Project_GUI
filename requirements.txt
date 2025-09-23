@@ -2,5 +2,5 @@ streamlit==1.44.1
 numpy
 matplotlib
 plotly
-opencv
+opencv-python-headless
 pandas>=2.0
