@@ -1,0 +1,5 @@
+streamlit==1.44.1
+numpy
+matplotlib
+plotly
+cv2
