@@ -6,6 +6,7 @@ import json
 import io
 import tempfile
 import os
+import time
 from collections import defaultdict
 from datetime import datetime
 
@@ -13,6 +14,20 @@ from datetime import datetime
 # App configuration
 # -------------------------------
 st.set_page_config(page_title="Video + Bounding Boxes Viewer", layout="wide")
+
+# Session state defaults
+if 'playing' not in st.session_state:
+    st.session_state.playing = False
+if 'current_frame' not in st.session_state:
+    st.session_state.current_frame = 0
+if 'last_tick' not in st.session_state:
+    st.session_state.last_tick = 0.0
+if 'play_speed' not in st.session_state:
+    st.session_state.play_speed = 1.0
+if 'looping' not in st.session_state:
+    st.session_state.looping = False
+if 'loop_range' not in st.session_state:
+    st.session_state.loop_range = (0, 0)
 
 # Example tracking data in JSONL format (one JSON object per line)
 DEFAULT_EVENTS_JSONL = """
@@ -129,12 +144,22 @@ def group_by_frame(events_with_frames: list) -> dict:
     return by_frame
 
 def read_frame(video_path: str, frame_idx: int):
-    cap = cv2.VideoCapture(video_path)
+    """Read a frame using a persistent VideoCapture for smoother playback."""
+    cap = st.session_state.get('cap', None)
+    if cap is None or st.session_state.get('cap_path') != video_path:
+        # Initialize or reinitialize capture
+        try:
+            if cap is not None:
+                cap.release()
+        except Exception:
+            pass
+        cap = cv2.VideoCapture(video_path)
+        st.session_state['cap'] = cap
+        st.session_state['cap_path'] = video_path
     if not cap.isOpened():
         return None
-    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, frame_idx))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(frame_idx)))
     ok, frame = cap.read()
-    cap.release()
     if not ok:
         return None
     return frame  # BGR
@@ -227,11 +252,40 @@ with col_left:
         )
 
         # Frame selection controls
-        frame_idx = st.slider("Select frame", min_value=0, max_value=max(0, frame_count - 1), value=0, step=1)
+        frame_idx = st.slider("Select frame", min_value=0, max_value=max(0, frame_count - 1), value=int(st.session_state.get('current_frame', 0)), step=1)
         frame_idx = st.number_input("Or type frame index", min_value=0, max_value=max(0, frame_count - 1), value=int(frame_idx), step=1)
+        # Keep a single source of truth for current frame
+        st.session_state['current_frame'] = int(frame_idx)
+
+        # Playback controls
+        ctrl_cols = st.columns([1, 1, 1, 1])
+        with ctrl_cols[0]:
+            if st.button("▶ Play" if not st.session_state.playing else "⏸ Pause", use_container_width=True):
+                st.session_state.playing = not st.session_state.playing
+        with ctrl_cols[1]:
+            st.session_state.play_speed = st.select_slider("Speed", options=[0.25, 0.5, 1.0, 1.5, 2.0], value=float(st.session_state.get('play_speed', 1.0)))
+        with ctrl_cols[2]:
+            st.session_state.looping = st.checkbox("Loop", value=bool(st.session_state.get('looping', False)))
+        with ctrl_cols[3]:
+            if st.button("⏹ Stop", use_container_width=True):
+                st.session_state.playing = False
+        if st.session_state.looping:
+            st.session_state.loop_range = st.slider(
+                "Loop range [start, end]",
+                min_value=0,
+                max_value=max(0, frame_count - 1),
+                value=(
+                    int(st.session_state.loop_range[0]) if isinstance(st.session_state.loop_range, tuple) else 0,
+                    int(st.session_state.loop_range[1]) if isinstance(st.session_state.loop_range, tuple) else max(0, frame_count - 1),
+                ),
+                step=1,
+            )
+        with st.expander("Raw video player (no overlays)", expanded=False):
+            st.video(video_path)
 
         # Read and annotate current frame
-        frame_bgr = read_frame(video_path, int(frame_idx))
+        current_frame = int(st.session_state.get('current_frame', int(frame_idx)))
+        frame_bgr = read_frame(video_path, current_frame)
         if frame_bgr is None:
             st.warning("Could not read this frame.")
         else:
@@ -239,10 +293,32 @@ with col_left:
             events_now = []
             if by_frame:
                 # exact or within tolerance
-                for f in range(int(frame_idx) - tolerance, int(frame_idx) + tolerance + 1):
+                for f in range(int(current_frame) - tolerance, int(current_frame) + tolerance + 1):
                     events_now.extend(by_frame.get(f, []))
             annotated = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
             st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
+
+            # Advance playback if enabled
+            if st.session_state.playing and fps > 0:
+                # Compute next frame respecting loop mode
+                next_f = current_frame + 1
+                if st.session_state.get('looping', False):
+                    a, b = st.session_state.get('loop_range', (0, frame_count - 1))
+                    a = int(max(0, min(a, frame_count - 1)))
+                    b = int(max(0, min(b, frame_count - 1)))
+                    if a > b:
+                        a, b = b, a
+                    if next_f > b:
+                        next_f = a
+                else:
+                    if next_f >= frame_count:
+                        next_f = frame_count - 1
+                        st.session_state.playing = False
+                st.session_state['current_frame'] = int(next_f)
+                # Sleep to target the selected playback speed and rerun
+                delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 1.0))))
+                time.sleep(delay)
+                st.experimental_rerun()
     else:
         st.info("Upload a video to begin.")
 
