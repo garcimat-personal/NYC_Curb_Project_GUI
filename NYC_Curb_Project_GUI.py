@@ -4,6 +4,11 @@ import numpy as np
 import pandas as pd
 import json
 import io
+import xml.etree.ElementTree as ET
+try:
+    import requests
+except Exception:
+    requests = None
 import tempfile
 import os
 import time
@@ -160,6 +165,97 @@ def ms_to_frame(timestamp_ms: int, video_start_ms: int, fps: float) -> int:
     except Exception:
         return 0
 
+# ---- CVAT polygon helpers ----
+
+def hex_to_bgr(hex_color: str):
+    if not hex_color:
+        return (0, 255, 0)
+    s = hex_color.strip().lstrip('#')
+    if len(s) == 3:
+        s = ''.join([c*2 for c in s])
+    try:
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+        return (b, g, r)
+    except Exception:
+        return (0, 255, 0)
+
+@st.cache_data(show_spinner=False)
+def parse_cvat_xml(xml_text: str):
+    """Parse CVAT XML polygons → {frame_idx: [{label, points, color_hex}]} and label color map."""
+    by_frame = defaultdict(list)
+    label_colors = {}
+    if not xml_text:
+        return by_frame, label_colors
+    root = ET.fromstring(xml_text)
+    # collect label colors
+    for lbl in root.findall('.//meta/job/labels/label'):
+        name = (lbl.findtext('name') or '').strip()
+        color = (lbl.findtext('color') or '#00FF00').strip()
+        if name:
+            label_colors[name] = color
+    # collect polygons
+    for trk in root.findall('.//track'):
+        label = trk.attrib.get('label', '')
+        color = label_colors.get(label, '#00FF00')
+        for poly in trk.findall('polygon'):
+            if poly.attrib.get('outside', '0') == '1':
+                continue
+            frame_idx = int(poly.attrib.get('frame', '0'))
+            pts_attr = (poly.attrib.get('points') or '').strip()
+            pts = []
+            for pair in pts_attr.split(';'):
+                if not pair:
+                    continue
+                try:
+                    x_str, y_str = pair.split(',')
+                    pts.append((int(round(float(x_str))), int(round(float(y_str)))))
+                except Exception:
+                    continue
+            if len(pts) >= 3:
+                by_frame[frame_idx].append({
+                    'label': label,
+                    'points': pts,
+                    'color': color,
+                })
+    return by_frame, label_colors
+
+@st.cache_data(show_spinner=False)
+def fetch_url_text(url: str) -> str:
+    if requests is None:
+        raise RuntimeError("'requests' not available")
+    r = requests.get(url, timeout=15)
+    r.raise_for_status()
+    return r.text
+
+def overlay_polygons(frame_bgr: np.ndarray, polys: list, alpha: float = 0.35, edge_thickness: int = 2) -> np.ndarray:
+    if not polys:
+        return frame_bgr
+    alpha = float(max(0.0, min(1.0, alpha)))
+    out = frame_bgr.copy()
+    overlay = frame_bgr.copy()
+    mask = np.zeros(frame_bgr.shape[:2], dtype=np.uint8)
+    for p in polys:
+        pts = np.array(p.get('points', []), dtype=np.int32).reshape((-1, 1, 2))
+        if pts.size == 0:
+            continue
+        color_bgr = hex_to_bgr(p.get('color', '#00FF00'))
+        cv2.fillPoly(overlay, [pts], color_bgr)
+        cv2.fillPoly(mask, [pts], 255)
+    # Blend only where mask is set
+    blended = cv2.addWeighted(overlay, alpha, out, 1.0 - alpha, 0)
+    out[mask > 0] = blended[mask > 0]
+    # Draw edges on top with full opacity
+    for p in polys:
+        pts = np.array(p.get('points', []), dtype=np.int32).reshape((-1, 1, 2))
+        if pts.size == 0:
+            continue
+        color_bgr = hex_to_bgr(p.get('color', '#00FF00'))
+        if edge_thickness > 0:
+            cv2.polylines(out, [pts], isClosed=True, color=color_bgr, thickness=int(edge_thickness), lineType=cv2.LINE_AA)
+    return out
+
 def read_frame(video_path: str, frame_idx: int):
     """Read a frame using a persistent VideoCapture for smoother playback."""
     cap = st.session_state.get('cap', None)
@@ -228,6 +324,14 @@ with st.sidebar:
     show_labels = st.checkbox("Show labels", value=True)
     tolerance = st.number_input("Frame tolerance (± frames)", min_value=0, max_value=30, value=0, step=1)
 
+    # --- CVAT XML annotations ---
+    show_polygons = st.checkbox("Show CVAT polygons", value=True)
+    with st.expander("Annotations (CVAT XML)", expanded=False):
+        xml_file = st.file_uploader("Upload CVAT XML", type=["xml"])    
+        xml_url = st.text_input("Or GitHub raw URL to XML", value="", help="Paste the raw URL to the XML file in your GitHub repo.")
+        poly_alpha = st.slider("Polygon fill opacity", 0.0, 1.0, 0.35, 0.05)
+        poly_edge_thickness = st.number_input("Polygon edge thickness", min_value=0, max_value=10, value=2, step=1)
+
 # Load / save video
 video_path = None
 meta = None
@@ -241,6 +345,26 @@ if events_file is not None:
     raw_events = parse_events_jsonl_stream(events_file)
 elif paste_toggle and events_text:
     raw_events = parse_events_jsonl(events_text)
+
+# Parse CVAT XML annotations
+cvat_polys_by_frame = {}
+label_colors = {}
+xml_error = None
+if 'xml_file' in locals() and xml_file is not None:
+    try:
+        xml_text = xml_file.read().decode('utf-8', errors='ignore')
+        cvat_polys_by_frame, label_colors = parse_cvat_xml(xml_text)
+    except Exception as e:
+        xml_error = str(e)
+elif 'xml_url' in locals() and xml_url:
+    try:
+        xml_text = fetch_url_text(xml_url)
+        cvat_polys_by_frame, label_colors = parse_cvat_xml(xml_text)
+    except Exception as e:
+        xml_error = str(e)
+with st.sidebar:
+    if xml_error:
+        st.warning(f"XML parse/fetch issue: {xml_error}")
 
 # Derive default video start ms from earliest event if present
 min_event_ms = min([e.get("event_time") for e in raw_events if e.get("event_time") is not None], default=None)
@@ -382,6 +506,11 @@ with col_left:
                 for f in range(int(current_frame) - tolerance, int(current_frame) + tolerance + 1):
                     events_now.extend(by_frame.get(f, []))
             annotated = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
+            # Overlay CVAT polygons for this frame
+            if 'cvat_polys_by_frame' in locals() and cvat_polys_by_frame and show_polygons:
+                polys_now = cvat_polys_by_frame.get(int(current_frame), [])
+                if polys_now:
+                    annotated = overlay_polygons(annotated, polys_now, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
             st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
 
             # Advance playback if enabled
