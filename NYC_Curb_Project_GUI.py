@@ -288,31 +288,7 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
         # Simple color hashing
         color = ((37 * gid) % 255, (17 * gid) % 255, (97 * gid) % 255)  # BGR
         cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        if show_labels:
-            label = f"{e.get('event_type','')}: {e.get('confidence', 0):.2f}"
-            cv2.putText(out, label, (int(x1), max(0, int(y1) - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
-    return out
-
-
-def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
-    if fps <= 0:
-        return 0
-    return int(round(((int(ts_ms) - int(start_ms)) / 1000.0) * float(fps)))
-
-
-def frame_to_ms(frame_idx: int, start_ms: int, fps: float) -> int:
-    if fps <= 0:
-        return int(start_ms)
-    return int(start_ms) + int(round((int(frame_idx) / float(fps)) * 1000.0))
-
-# -------------------------------
-# UI
-# -------------------------------
-st.title("Video Clip Viewer with Bounding Boxes")
-
-with st.sidebar:
-    st.header("Inputs")
-    video_file = st.file_uploader("Upload video", type=["mp4", "mov", "avi", "mkv"])    
+        if show_["mp4", "mov", "avi", "mkv"])    
     events_file = st.file_uploader("Upload tracking JSONL (.jsonl) (optional)", type=["jsonl", "json"])     
     st.caption("Tracking format: one JSON object per line, with bbox_x1/y1/x2/y2 and event_time (ms epoch).")
 
@@ -419,9 +395,7 @@ with col_left:
             st.session_state.play_speed = st.select_slider("Speed", options=[0.25, 0.5, 1.0, 1.5, 2.0], value=float(st.session_state.get('play_speed', 1.0)))
         with ctrl_cols[2]:
             st.session_state.looping = st.checkbox("Loop", value=bool(st.session_state.get('looping', False)))
-        with ctrl_cols[3]:
-            if st.button("⏹ Stop", use_container_width=True):
-                st.session_state.playing = False
+        with ctrlplaying = False
         if st.session_state.looping:
             st.session_state.loop_range = st.slider(
                 "Loop range [start, end]",
@@ -511,7 +485,7 @@ with col_left:
                 polys_now = cvat_polys_by_frame.get(int(current_frame), [])
                 if polys_now:
                     annotated = overlay_polygons(annotated, polys_now, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
-            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_column_width=True)
 
             # Advance playback if enabled
             if st.session_state.playing and fps > 0:
@@ -519,19 +493,22 @@ with col_left:
                 next_f = current_frame + 1
                 if st.session_state.get('looping', False):
                     a, b = st.session_state.get('loop_range', (0, frame_count - 1))
-                    a = int(max(0, min(a, frame_count - 1)))
-                    b = int(max(0, min(b, frame_count - 1)))
-                    if a > b:
-                        a, b = b, a
-                    if next_f > b:
-                        next_f = a
-                else:
-                    if next_f >= frame_count:
-                        next_f = frame_count - 1
-                        st.session_state.playing = False
-                st.session_state['current_frame'] = int(next_f)
-                # Sleep to target the selected playback speed and rerun
-                delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 1.0))))
+                    a = int(max(canvas = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
+            # Overlay CVAT polygons for this frame
+            if 'cvat_polys_by_frame' in locals() and cvat_polys_by_frame and show_polygons:
+                polys_now = cvat_polys_by_frame.get(int(current_frame), [])
+                if polys_now:
+                    annotated = overlay_polygons(annotated, polys_now, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
+            # Ensure CVAT polygons are shown on every frame (repeat across all frames)
+            if st.session_state.get('cvat_polys') and st.session_state.get('poly_show', True):
+                polys = st.session_state.get('cvat_polys', [])
+                canvas = draw_polygons(
+                    canvas,
+                    polys,
+                    alpha=float(st.session_state.get('poly_alpha', 0.35)),
+                    thickness=int(st.session_state.get('poly_thickness', 2)),
+                )
+            st.image(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB), use_container_width=True)        delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 1.0))))
                 time.sleep(delay)
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
     else:
