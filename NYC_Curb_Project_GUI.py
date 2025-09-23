@@ -318,7 +318,7 @@ with col_left:
                 # Sleep to target the selected playback speed and rerun
                 delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 1.0))))
                 time.sleep(delay)
-                st.experimental_rerun()
+                (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
     else:
         st.info("Upload a video to begin.")
 
