@@ -28,11 +28,7 @@ if 'current_frame' not in st.session_state:
 if 'last_tick' not in st.session_state:
     st.session_state.last_tick = 0.0
 if 'play_speed' not in st.session_state:
-    st.session_state.play_speed = st.select_slider(
-        "Speed",
-        options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
-        value=float(st.session_state.get('play_speed', 5.0)),
-    )
+    st.session_state.play_speed = 5.0
 if 'looping' not in st.session_state:
     st.session_state.looping = False
 if 'loop_range' not in st.session_state:
@@ -489,8 +485,17 @@ with col_left:
             if st.button("▶ Play" if not st.session_state.playing else "⏸ Pause", use_container_width=True):
                 st.session_state.playing = not st.session_state.playing
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-        
+
         with ctrl_cols[2]:
+            # Speed selector (renders every run, persists via key)
+            st.session_state.play_speed = st.select_slider(
+                "Speed",
+                options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
+                value=float(st.session_state.get('play_speed', 5.0)),
+                key="play_speed_selector",
+            )
+        
+        with ctrl_cols[3]:
             if st.button("+15 sec", use_container_width=True):
                 _seek(+15)
         
@@ -542,7 +547,7 @@ with col_left:
                         st.session_state.playing = False
                 st.session_state['current_frame'] = int(next_f)
                 # Sleep to target the selected playback speed and rerun
-                delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 1.0))))
+                delay = max(0.001, 1.0 / (fps * float(st.session_state.get('play_speed', 5.0))))
                 time.sleep(delay)
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
     else:
