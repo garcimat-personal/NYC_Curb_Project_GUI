@@ -27,11 +27,12 @@ if 'current_frame' not in st.session_state:
     st.session_state.current_frame = 0
 if 'last_tick' not in st.session_state:
     st.session_state.last_tick = 0.0
-st.session_state.play_speed = st.select_slider(
-    "Speed",
-    options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
-    value=float(st.session_state.get('play_speed', 5.0)),
-)
+if 'play_speed' not in st.session_state:
+    st.session_state.play_speed = st.select_slider(
+        "Speed",
+        options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
+        value=float(st.session_state.get('play_speed', 5.0)),
+    )
 if 'looping' not in st.session_state:
     st.session_state.looping = False
 if 'loop_range' not in st.session_state:
