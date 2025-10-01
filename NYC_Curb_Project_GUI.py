@@ -467,7 +467,7 @@ with col_left:
             current_frame = int(new_frame)
         
         # Controls row: -15s | Play/Pause | +15s
-        ctrl_cols = st.columns([1, 1, 2, 1])
+        ctrl_cols = st.columns([1, 1, 1, 2])
         def _seek(seconds: float):
             if fps and fps > 0:
                 delta = int(round(seconds * float(fps)))
@@ -487,16 +487,16 @@ with col_left:
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
 
         with ctrl_cols[2]:
+            if st.button("+15 sec", use_container_width=True):
+                _seek(+15)
+
+        with ctrl_cols[3]:
             # Speed selector (renders every run, persists via key)
             st.session_state.play_speed = st.select_slider(
                 "Speed",
                 options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
                 value=float(st.session_state.get('play_speed', 5.0)),
             )
-        
-        with ctrl_cols[3]:
-            if st.button("+15 sec", use_container_width=True):
-                _seek(+15)
         
         # Status line
         cur_ms = frame_to_ms(int(st.session_state["current_frame"]), int(video_start_ms), float(fps))
