@@ -494,7 +494,7 @@ with col_left:
             # Speed selector (renders every run, persists via key)
             st.session_state.play_speed = st.select_slider(
                 "Speed",
-                options=[0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0],
+                options=[1.0, 1.5, 2.0, 3.0, 5.0, 10.0, 15.0],
                 value=float(st.session_state.get('play_speed', 5.0)),
             )
         
