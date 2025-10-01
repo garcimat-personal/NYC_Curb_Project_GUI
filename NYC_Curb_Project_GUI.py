@@ -451,96 +451,50 @@ with col_left:
         )
 
         # Frame selection controls
-        frame_idx = st.slider("Select frame", min_value=0, max_value=max(0, frame_count - 1), value=int(st.session_state.get('current_frame', 0)), step=1)
-        frame_idx = st.number_input("Or type frame index", min_value=0, max_value=max(0, frame_count - 1), value=int(frame_idx), step=1)
-        # Keep a single source of truth for current frame
-        st.session_state['current_frame'] = int(frame_idx)
-
-        # Playback controls
-        ctrl_cols = st.columns([1, 1, 1, 1])
-        with ctrl_cols[0]:
-            if st.button("▶ Play" if not st.session_state.playing else "⏸ Pause", use_container_width=True):
-                st.session_state.playing = not st.session_state.playing
-        with ctrl_cols[1]:
-            st.session_state.play_speed = st.select_slider("Speed", options=[0.25, 0.5, 1.0, 1.5, 2.0], value=float(st.session_state.get('play_speed', 1.0)))
-        with ctrl_cols[2]:
-            st.session_state.looping = st.checkbox("Loop", value=bool(st.session_state.get('looping', False)))
-        with ctrl_cols[3]:
-            if st.button("⏹ Stop", use_container_width=True):
-                st.session_state.playing = False
-        if st.session_state.looping:
-            st.session_state.loop_range = st.slider(
-                "Loop range [start, end]",
-                min_value=0,
-                max_value=max(0, frame_count - 1),
-                value=(
-                    int(st.session_state.loop_range[0]) if isinstance(st.session_state.loop_range, tuple) else 0,
-                    int(st.session_state.loop_range[1]) if isinstance(st.session_state.loop_range, tuple) else max(0, frame_count - 1),
-                ),
-                step=1,
-            )
-        with st.expander("Raw video player (no overlays)", expanded=False):
-            st.video(video_path)
-
-        # Jump to frame by time (ms)
-        with st.container():
-            jump_cols = st.columns([2, 1])
-            with jump_cols[0]:
-                jump_time_ms = st.number_input(
-                    "Jump to time (ms since epoch)",
-                    min_value=0,
-                    value=int(video_start_ms),
-                    step=100,
-                    help="Maps an absolute epoch-millisecond timestamp to a frame using the video start timestamp and FPS.",
+        # --- Frame slider (directly above the video) + skip buttons ---
+        # Single source of truth
+        current_frame = int(st.session_state.get("current_frame", 0))
+        
+        # Slider directly above the video window
+        new_frame = st.slider(
+            "Frame",
+            min_value=0,
+            max_value=max(0, frame_count - 1),
+            value=current_frame,
+            step=1,
+            key="frame_slider",
+        )
+        if new_frame != current_frame:
+            st.session_state["current_frame"] = int(new_frame)
+            current_frame = int(new_frame)
+        
+        # Skip buttons: −15s / +15s (guard if fps unknown/non-positive)
+        skip_cols = st.columns([1, 1, 6, 1, 1])
+        def _seek(seconds: float):
+            if fps and fps > 0:
+                delta = int(round(seconds * float(fps)))
+                st.session_state["current_frame"] = int(
+                    max(0, min(frame_count - 1, current_frame + delta))
                 )
-            with jump_cols[1]:
-                if st.button("Go", use_container_width=True):
-                    target = ms_to_frame(int(jump_time_ms), int(video_start_ms), float(fps))
-                    target = max(0, min(int(target), max(0, frame_count - 1)))
-                    st.session_state['current_frame'] = int(target)
-                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-
-        # Jump by offset from video start (ms)
-        with st.container():
-            off_cols = st.columns([2, 1])
-            with off_cols[0]:
-                jump_offset_ms = st.number_input(
-                    "Jump to offset (ms from video start)",
-                    min_value=0,
-                    value=0,
-                    step=10,
-                    help="Relative milliseconds from the configured video start.",
-                )
-            with off_cols[1]:
-                if st.button("Go (offset)", use_container_width=True):
-                    target = max(0, min(int(round((int(jump_offset_ms)/1000.0) * float(fps))), max(0, frame_count - 1)))
-                    st.session_state['current_frame'] = int(target)
-                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-
-        # Jump to absolute time in epoch ms
-        with st.container():
-            abs_cols = st.columns([2, 1])
-            cur_ms = frame_to_ms(int(st.session_state.get('current_frame', 0)), int(video_start_ms), float(fps))
-            with abs_cols[0]:
-                jump_epoch_ms = st.number_input(
-                    "Jump to time (ms since epoch)",
-                    min_value=0,
-                    value=int(cur_ms),
-                    step=10,
-                    help="Absolute epoch milliseconds for the desired frame.",
-                )
-            with abs_cols[1]:
-                if st.button("Go (absolute)", use_container_width=True):
-                    target = ms_to_frame(int(jump_epoch_ms), int(video_start_ms), float(fps))
-                    target = max(0, min(int(target), max(0, frame_count - 1)))
-                    st.session_state['current_frame'] = int(target)
-                    (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
-
-        # Display the computed epoch time for the current frame
-        st.caption(f"Current frame time: {cur_ms} ms since epoch")
-
-        # Read and annotate current frame
-        current_frame = int(st.session_state.get('current_frame', int(frame_idx)))
+                (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+        
+        with skip_cols[0]:
+            if st.button("−15 sec", use_container_width=True):
+                _seek(-15)
+        
+        with skip_cols[4]:
+            if st.button("+15 sec", use_container_width=True):
+                _seek(+15)
+        
+        # (Optional) small status line under the buttons
+        cur_ms = frame_to_ms(int(st.session_state["current_frame"]), int(video_start_ms), float(fps))
+        st.caption(
+            f"Frame {st.session_state['current_frame']}/{frame_count - 1} "
+            f"· {cur_ms} ms since epoch · {cur_ms/1000.0:.2f} s"
+        )
+        
+        # --- Read & render current frame (video window) ---
+        current_frame = int(st.session_state["current_frame"])
         frame_bgr = read_frame(video_path, current_frame)
         if frame_bgr is None:
             st.warning("Could not read this frame.")
@@ -548,16 +502,11 @@ with col_left:
             # Determine which events to draw
             events_now = []
             if by_frame:
-                # exact or within tolerance
                 for f in range(int(current_frame) - tolerance, int(current_frame) + tolerance + 1):
                     events_now.extend(by_frame.get(f, []))
             canvas = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
-            # CVAT polygon overlays
             if show_polygons and (cvat_polys_by_frame or cvat_polys_all):
-                if 'poly_all_frames' in locals() and poly_all_frames:
-                    polys_to_draw = cvat_polys_all
-                else:
-                    polys_to_draw = cvat_polys_by_frame.get(int(current_frame), []) if cvat_polys_by_frame else []
+                polys_to_draw = cvat_polys_all if ('poly_all_frames' in locals() and poly_all_frames) else cvat_polys_by_frame.get(int(current_frame), [])
                 if polys_to_draw:
                     canvas = overlay_polygons(canvas, polys_to_draw, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
             st.image(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB), use_container_width=True)
