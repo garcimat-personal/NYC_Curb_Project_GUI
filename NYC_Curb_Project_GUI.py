@@ -451,11 +451,9 @@ with col_left:
         )
 
         # Frame selection controls
-        # --- Frame slider (directly above the video) + skip buttons ---
-        # Single source of truth
         current_frame = int(st.session_state.get("current_frame", 0))
-        
-        # Slider directly above the video window
+
+        # Slider directly above the video
         new_frame = st.slider(
             "Frame",
             min_value=0,
@@ -468,29 +466,34 @@ with col_left:
             st.session_state["current_frame"] = int(new_frame)
             current_frame = int(new_frame)
         
-        # Skip buttons: −15s / +15s (guard if fps unknown/non-positive)
-        skip_cols = st.columns([1, 1, 6, 1, 1])
+        # Controls row: -15s | Play/Pause | +15s
+        ctrl_cols = st.columns([1, 1, 1])
         def _seek(seconds: float):
             if fps and fps > 0:
                 delta = int(round(seconds * float(fps)))
                 st.session_state["current_frame"] = int(
-                    max(0, min(frame_count - 1, current_frame + delta))
+                    max(0, min(frame_count - 1, st.session_state["current_frame"] + delta))
                 )
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
         
-        with skip_cols[0]:
+        with ctrl_cols[0]:
             if st.button("−15 sec", use_container_width=True):
                 _seek(-15)
         
-        with skip_cols[4]:
+        with ctrl_cols[1]:
+            # Keep Play/Pause behavior
+            if st.button("▶ Play" if not st.session_state.playing else "⏸ Pause", use_container_width=True):
+                st.session_state.playing = not st.session_state.playing
+                (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+        
+        with ctrl_cols[2]:
             if st.button("+15 sec", use_container_width=True):
                 _seek(+15)
         
-        # (Optional) small status line under the buttons
+        # Status line
         cur_ms = frame_to_ms(int(st.session_state["current_frame"]), int(video_start_ms), float(fps))
         st.caption(
-            f"Frame {st.session_state['current_frame']}/{frame_count - 1} "
-            f"· {cur_ms} ms since epoch · {cur_ms/1000.0:.2f} s"
+            f"Frame {st.session_state['current_frame']}/{max(0, frame_count - 1)} · {cur_ms} ms since epoch · {cur_ms/1000.0:.2f} s"
         )
         
         # --- Read & render current frame (video window) ---
@@ -506,9 +509,15 @@ with col_left:
                     events_now.extend(by_frame.get(f, []))
             canvas = draw_boxes(frame_bgr, events_now, show_labels=show_labels)
             if show_polygons and (cvat_polys_by_frame or cvat_polys_all):
-                polys_to_draw = cvat_polys_all if ('poly_all_frames' in locals() and poly_all_frames) else cvat_polys_by_frame.get(int(current_frame), [])
+                polys_to_draw = (
+                    cvat_polys_all
+                    if ("poly_all_frames" in locals() and poly_all_frames)
+                    else cvat_polys_by_frame.get(int(current_frame), [])
+                )
                 if polys_to_draw:
-                    canvas = overlay_polygons(canvas, polys_to_draw, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness))
+                    canvas = overlay_polygons(
+                        canvas, polys_to_draw, alpha=float(poly_alpha), edge_thickness=int(poly_edge_thickness)
+                    )
             st.image(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB), use_container_width=True)
 
             # Advance playback if enabled
