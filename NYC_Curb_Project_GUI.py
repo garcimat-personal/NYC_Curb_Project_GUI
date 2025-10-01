@@ -15,9 +15,6 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-st.set_option("server.maxUploadSize", 1024)
-st.set_option("server.maxMessageSize", 1024)
-
 # -------------------------------
 # App configuration
 # -------------------------------
