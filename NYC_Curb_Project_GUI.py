@@ -28,7 +28,7 @@ if 'current_frame' not in st.session_state:
 if 'last_tick' not in st.session_state:
     st.session_state.last_tick = 0.0
 if 'play_speed' not in st.session_state:
-    st.session_state.play_speed = 1.0
+    st.session_state.play_speed = 5.0
 if 'looping' not in st.session_state:
     st.session_state.looping = False
 if 'loop_range' not in st.session_state:
