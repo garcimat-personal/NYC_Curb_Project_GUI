@@ -467,7 +467,7 @@ with col_left:
             current_frame = int(new_frame)
         
         # Controls row: -15s | Play/Pause | +15s
-        ctrl_cols = st.columns([1, 1, 1])
+        ctrl_cols = st.columns([1, 1, 2, 1])
         def _seek(seconds: float):
             if fps and fps > 0:
                 delta = int(round(seconds * float(fps)))
