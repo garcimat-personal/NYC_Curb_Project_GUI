@@ -334,6 +334,14 @@ def _put_label_with_bg(img, text, org, color_bgr, font_scale=0.5, thickness=1):
     cv2.rectangle(img, (x, y - th - 4), (x + tw, y + baseline), (0, 0, 0), thickness=-1)
     cv2.putText(img, text, (x, y - 2), font, font_scale, color_bgr, thickness, cv2.LINE_AA)
 
+def put_text_outline(img, text, org, font_scale=0.5, thickness=1):
+    """White text with a black outline for readability."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    # black outline
+    cv2.putText(img, text, org, font, font_scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+    # white fill
+    cv2.putText(img, text, org, font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
 def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) -> np.ndarray:
     out = frame_bgr.copy()
     for e in events:
@@ -367,16 +375,18 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             # top text anchored just above the top-left corner of the box
             x_text_top = int(x1)
             y_text_top = max(12, int(y1) - 4)
-            cv2.putText(out, top_text, (x_text_top, y_text_top),
-                        font, font_scale, color, thickness, cv2.LINE_AA)
+            # cv2.putText(out, top_text, (x_text_top, y_text_top),
+            #             font, font_scale, color, thickness, cv2.LINE_AA)
+            put_text_outline(out, top_text, (x_text_top, y_text_top), font_scale=0.5, thickness=1)
         
             # bottom text anchored just below the bottom-left corner of the box,
             # but clamped to stay inside the image
             h = out.shape[0]
             x_text_bottom = int(x1)
             y_text_bottom = min(h - 2, int(y2) + 14)
-            cv2.putText(out, bottom_text, (x_text_bottom, y_text_bottom),
-                        font, font_scale, color, thickness, cv2.LINE_AA)
+            # cv2.putText(out, bottom_text, (x_text_bottom, y_text_bottom),
+            #             font, font_scale, color, thickness, cv2.LINE_AA)
+            put_text_outline(out, bottom_text, (x_text_bottom, y_text_bottom), font_scale=0.5, thickness=1)
     return out
 
 def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
