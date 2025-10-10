@@ -352,12 +352,13 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             zone = e.get('curb_zone_id', '')
             conf = e.get('confidence', None)
             event  = e.get('event_type', '')
+            lane_type = e.get('blocked_lane_types', '')
 
             # Bottom
-            bottom_text = f"{class_type} {conf:.2f}|ID: {gid}"
+            bottom_text = f"{class_type} {conf:.2f} | ID: {gid}"
         
             # Top
-            top_text = f"{event} | zone: {zone}" if zone else "zone:-"
+            top_text = f"{event} | zone: {lane_type}" if zone else "zone:-"
         
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 0.5
