@@ -593,7 +593,7 @@ with col_right:
         # --- All events list & navigation ---
         # st.markdown("### All events")
         # st.subheader("Events")
-        # all_df = pd.DataFrame(mapped_events)
+        all_df = pd.DataFrame(mapped_events)
         desired_order = [
             "global_id", "event_type", "vehicle_type",
             "blocked_lane_types", "purpose", "frame_idx"
