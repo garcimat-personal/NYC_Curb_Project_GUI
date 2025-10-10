@@ -354,7 +354,7 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             event  = e.get('event_type', '')
 
             # Bottom
-            bottom_text = f"{class_type} {conf}|ID: {gid}"
+            bottom_text = f"{class_type} {conf:.2f}|ID: {gid}"
         
             # Top
             top_text = f"{event} | zone: {zone}" if zone else "zone:-"
