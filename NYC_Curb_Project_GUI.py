@@ -587,12 +587,12 @@ with col_right:
         # --- All events list & navigation ---
         # st.markdown("### All events")
         # st.subheader("Events")
-        # all_df = pd.DataFrame(mapped_events)
+        all_df = pd.DataFrame(mapped_events)
         if not all_df.empty:
             # Prefer a concise ordering
             if 'frame_idx' in all_df.columns:
                 all_df = all_df.sort_values(['frame_idx', 'event_time'] if 'event_time' in all_df.columns else ['frame_idx'])
-            st.dataframe(all_df, use_container_width=True, hide_index=True)
+            # st.dataframe(all_df, use_container_width=True, hide_index=True)
             # Click-to-navigate via selectbox
             event_options = list(enumerate(all_df.to_dict(orient='records')))
             def _fmt(opt):
