@@ -635,6 +635,7 @@ with col_right:
             "blocked_lane_types", "purpose", "frame_idx"
         ]
         all_df = reorder_columns(all_df, desired_order)
+        st.dataframe(all_df, use_container_width=True, hide_index=True)
         if not all_df.empty:
             # Prefer a concise ordering
             if 'frame_idx' in all_df.columns:
@@ -656,7 +657,6 @@ with col_right:
                 st.session_state['current_frame'] = max(0, int(target))
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
 
-            st.dataframe(all_df, use_container_width=True, hide_index=True)
         else:
             st.write("No events for the current selection.")
     else:
