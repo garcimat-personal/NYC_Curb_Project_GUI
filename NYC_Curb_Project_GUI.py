@@ -555,37 +555,38 @@ with col_left:
 with col_right:
     st.subheader("Events")
     if mapped_events:
-        # Show a small summary and a per-frame filter
-        st.markdown(f"Total events parsed: **{len(mapped_events)}**")
-        if meta is not None:
-            with st.expander("Event → frame mapping details", expanded=False):
-                if min_event_ms is not None:
-                    dt = datetime.utcfromtimestamp(min_event_ms / 1000.0)
-                    st.write(f"Earliest event_time: {min_event_ms} (UTC {dt.isoformat()}Z)")
-                st.write(f"Video start (ms): {video_start_ms}")
-                st.write(f"FPS used: {meta['fps']:.3f}")
+    #     # Show a small summary and a per-frame filter
+    #     st.markdown(f"Total events parsed: **{len(mapped_events)}**")
+    #     if meta is not None:
+    #         with st.expander("Event → frame mapping details", expanded=False):
+    #             if min_event_ms is not None:
+    #                 dt = datetime.utcfromtimestamp(min_event_ms / 1000.0)
+    #                 st.write(f"Earliest event_time: {min_event_ms} (UTC {dt.isoformat()}Z)")
+    #             st.write(f"Video start (ms): {video_start_ms}")
+    #             st.write(f"FPS used: {meta['fps']:.3f}")
         
-        # If a frame is selected on the left, filter table to the tolerance window
-        if meta is not None and 'frame_idx' in locals():
-            lower = max(0, int(frame_idx) - tolerance)
-            upper = int(frame_idx) + tolerance
-            filtered = [e for e in mapped_events if lower <= int(e.get('frame_idx', -1)) <= upper]
-        else:
-            filtered = mapped_events
+    #     # If a frame is selected on the left, filter table to the tolerance window
+    #     if meta is not None and 'frame_idx' in locals():
+    #         lower = max(0, int(frame_idx) - tolerance)
+    #         upper = int(frame_idx) + tolerance
+    #         filtered = [e for e in mapped_events if lower <= int(e.get('frame_idx', -1)) <= upper]
+    #     else:
+    #         filtered = mapped_events
         
-        if filtered:
-            df = pd.DataFrame(filtered)
-            # Keep common columns up front
-            front_cols = [
-                "frame_idx", "event_id", "event_type", "confidence",
-                "bbox_x1", "bbox_y1", "bbox_x2", "bbox_y2",
-                "event_time", "global_id", "vehicle_type", "purpose",
-            ]
-            cols = [c for c in front_cols if c in df.columns] + [c for c in df.columns if c not in front_cols]
-            st.dataframe(df[cols], use_container_width=True, hide_index=True)
+    #     if filtered:
+    #         df = pd.DataFrame(filtered)
+    #         # Keep common columns up front
+    #         front_cols = [
+    #             "frame_idx", "event_id", "event_type", "confidence",
+    #             "bbox_x1", "bbox_y1", "bbox_x2", "bbox_y2",
+    #             "event_time", "global_id", "vehicle_type", "purpose",
+    #         ]
+    #         cols = [c for c in front_cols if c in df.columns] + [c for c in df.columns if c not in front_cols]
+    #         st.dataframe(df[cols], use_container_width=True, hide_index=True)
         
         # --- All events list & navigation ---
-        st.markdown("### All events")
+        # st.markdown("### All events")
+        # st.subheader("Events")
         all_df = pd.DataFrame(mapped_events)
         if not all_df.empty:
             # Prefer a concise ordering
