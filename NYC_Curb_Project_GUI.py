@@ -587,7 +587,7 @@ with col_right:
         # --- All events list & navigation ---
         # st.markdown("### All events")
         # st.subheader("Events")
-        all_df = pd.DataFrame(mapped_events)
+        # all_df = pd.DataFrame(mapped_events)
         if not all_df.empty:
             # Prefer a concise ordering
             if 'frame_idx' in all_df.columns:
