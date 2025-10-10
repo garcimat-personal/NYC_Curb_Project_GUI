@@ -651,8 +651,8 @@ with col_right:
                 et = e.get('event_type', 'event')
                 eid = e.get('event_id', '')
                 # global_id first; fall back to event_id if gid missing
-                gid_part = f"gid:{gid}" if gid not in (None, '') else f"id:{eid or '?'}"
-                return f"{gid_part} | frame:{f} | {et}"
+                gid_part = f"ID: {gid}" if gid not in (None, '') else f"id:{eid or '?'}"
+                return f"{gid_part} | Frame: {f} | {et}"
                 
             sel = st.selectbox("Select an event to navigate", options=event_options, format_func=_fmt, index=0 if event_options else None)
             if st.button("Go to selected event", use_container_width=True, disabled=not bool(event_options)):
