@@ -346,24 +346,32 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
         color = ((37 * gid) % 255, (17 * gid) % 255, (97 * gid) % 255)  # BGR
         cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
         if show_labels:
-            # class type prefers vehicle_type; fall back to event_type if missing
+            # class type + id at the top edge
             class_type = (e.get('vehicle_type') or e.get('event_type') or 'unknown')
             gid = e.get('global_id', '')
+            top_text = f"{class_type} | gid:{gid}"
+        
+            # zone at the bottom edge
             zone = e.get('curb_zone_id', '')
-            # Optional: keep confidence + event_type for context
-            conf = e.get('confidence', None)
-            evt  = e.get('event_type', '')
+            bottom_text = f"zone:{zone}" if zone else "zone:-"
         
-            line1 = f"{class_type} | gid:{gid}"
-            line2 = f"zone:{zone}" + (f" | {evt}:{conf:.2f}" if isinstance(conf, (int, float)) else (f" | {evt}" if evt else ""))
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.5
+            thickness = 1
         
-            # anchor near top-left of the bbox; keep inside frame
-            x_text = int(x1)
-            y_text1 = max(12, int(y1) - 4)          # first line
-            y_text2 = y_text1 + 14                   # second line below it
+            # top text anchored just above the top-left corner of the box
+            x_text_top = int(x1)
+            y_text_top = max(12, int(y1) - 4)
+            cv2.putText(out, top_text, (x_text_top, y_text_top),
+                        font, font_scale, color, thickness, cv2.LINE_AA)
         
-            _put_label_with_bg(out, line1, (x_text, y_text1), color)
-            _put_label_with_bg(out, line2, (x_text, y_text2), color)
+            # bottom text anchored just below the bottom-left corner of the box,
+            # but clamped to stay inside the image
+            h = out.shape[0]
+            x_text_bottom = int(x1)
+            y_text_bottom = min(h - 2, int(y2) + 14)
+            cv2.putText(out, bottom_text, (x_text_bottom, y_text_bottom),
+                        font, font_scale, color, thickness, cv2.LINE_AA)
     return out
 
 def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
