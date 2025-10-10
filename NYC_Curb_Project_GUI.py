@@ -436,7 +436,7 @@ if meta is not None and raw_events:
     by_frame = group_by_frame(mapped_events)
 
 # Layout
-col_left, col_right = st.columns([5, 1])
+col_left, col_right = st.columns([3, 1])
 
 with col_left:
     st.subheader("Video & Annotations")
