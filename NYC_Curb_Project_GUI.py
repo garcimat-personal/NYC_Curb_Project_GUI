@@ -369,7 +369,7 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             top_text = f"{event} | zone: {lane_type}" if zone else "zone:-"
         
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.5
+            font_scale = 0.4
             thickness = 1
         
             # top text anchored just above the top-left corner of the box
@@ -377,7 +377,7 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             y_text_top = max(12, int(y1) - 4)
             # cv2.putText(out, top_text, (x_text_top, y_text_top),
             #             font, font_scale, color, thickness, cv2.LINE_AA)
-            put_text_outline(out, top_text, (x_text_top, y_text_top), font_scale=0.5, thickness=1)
+            put_text_outline(out, top_text, (x_text_top, y_text_top), font_scale=0.4, thickness=1)
         
             # bottom text anchored just below the bottom-left corner of the box,
             # but clamped to stay inside the image
@@ -386,7 +386,7 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             y_text_bottom = min(h - 2, int(y2) + 14)
             # cv2.putText(out, bottom_text, (x_text_bottom, y_text_bottom),
             #             font, font_scale, color, thickness, cv2.LINE_AA)
-            put_text_outline(out, bottom_text, (x_text_bottom, y_text_bottom), font_scale=0.5, thickness=1)
+            put_text_outline(out, bottom_text, (x_text_bottom, y_text_bottom), font_scale=0.4, thickness=1)
     return out
 
 def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
