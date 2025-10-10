@@ -592,7 +592,7 @@ with col_right:
             # Prefer a concise ordering
             if 'frame_idx' in all_df.columns:
                 all_df = all_df.sort_values(['frame_idx', 'event_time'] if 'event_time' in all_df.columns else ['frame_idx'])
-            # st.dataframe(all_df, use_container_width=True, hide_index=True)
+            
             # Click-to-navigate via selectbox
             event_options = list(enumerate(all_df.to_dict(orient='records')))
             def _fmt(opt):
@@ -608,6 +608,8 @@ with col_right:
                 target = int(e.get('frame_idx', 0))
                 st.session_state['current_frame'] = max(0, int(target))
                 (st.rerun() if hasattr(st, "rerun") else st.experimental_rerun())
+
+            st.dataframe(all_df, use_container_width=True, hide_index=True)
         else:
             st.write("No events for the current selection.")
     else:
