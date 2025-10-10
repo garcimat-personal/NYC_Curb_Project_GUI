@@ -349,11 +349,15 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
             # class type + id at the top edge
             class_type = (e.get('vehicle_type') or e.get('event_type') or 'unknown')
             gid = e.get('global_id', '')
-            top_text = f"{class_type} | gid:{gid}"
-        
-            # zone at the bottom edge
             zone = e.get('curb_zone_id', '')
-            bottom_text = f"zone:{zone}" if zone else "zone:-"
+            conf = e.get('confidence', None)
+            event  = e.get('event_type', '')
+
+            # Bottom
+            bottom_text = f"{class_type} {conf}|ID: {gid}"
+        
+            # Top
+            top_text = f"{event} | zone: {zone}" if zone else "zone:-"
         
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 0.5
