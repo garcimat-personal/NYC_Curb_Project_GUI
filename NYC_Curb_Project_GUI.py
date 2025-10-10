@@ -646,11 +646,14 @@ with col_right:
             event_options = list(enumerate(all_df.to_dict(orient='records')))
             def _fmt(opt):
                 i, e = opt
+                gid = e.get('global_id', '')
                 f = e.get('frame_idx', '?')
                 et = e.get('event_type', 'event')
-                gid = e.get('global_id', '')
                 eid = e.get('event_id', '')
-                return f"[{f}] {et}  id={eid or gid}"
+                # global_id first; fall back to event_id if gid missing
+                gid_part = f"gid:{gid}" if gid not in (None, '') else f"id:{eid or '?'}"
+                return f"{gid_part} | frame:{f} | {et}"
+                
             sel = st.selectbox("Select an event to navigate", options=event_options, format_func=_fmt, index=0 if event_options else None)
             if st.button("Go to selected event", use_container_width=True, disabled=not bool(event_options)):
                 _, e = sel
