@@ -53,6 +53,12 @@ def save_uploaded_video(uploaded_file) -> str:
         tmp.write(uploaded_file.read())
         return tmp.name
 
+def reorder_columns(df: pd.DataFrame, first_cols: list[str]) -> pd.DataFrame:
+    """Put `first_cols` first (if present), then all remaining columns."""
+    lead = [c for c in first_cols if c in df.columns]
+    rest = [c for c in df.columns if c not in lead]
+    return df[lead + rest]
+
 @st.cache_data(show_spinner=False)
 def get_video_meta(video_path: str):
     cap = cv2.VideoCapture(video_path)
@@ -587,7 +593,12 @@ with col_right:
         # --- All events list & navigation ---
         # st.markdown("### All events")
         # st.subheader("Events")
-        all_df = pd.DataFrame(mapped_events)
+        # all_df = pd.DataFrame(mapped_events)
+        desired_order = [
+            "global_id", "event_type", "vehicle_type",
+            "blocked_lane_types", "purpose", "frame_idx"
+        ]
+        all_df = reorder_columns(all_df, desired_order)
         if not all_df.empty:
             # Prefer a concise ordering
             if 'frame_idx' in all_df.columns:
