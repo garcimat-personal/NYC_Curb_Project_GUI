@@ -325,6 +325,15 @@ def read_frame(video_path: str, frame_idx: int):
         return None
     return frame  # BGR
 
+def _put_label_with_bg(img, text, org, color_bgr, font_scale=0.5, thickness=1):
+    """Draw text with a filled black background for readability."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    x, y = org
+    # background box above the anchor point
+    cv2.rectangle(img, (x, y - th - 4), (x + tw, y + baseline), (0, 0, 0), thickness=-1)
+    cv2.putText(img, text, (x, y - 2), font, font_scale, color_bgr, thickness, cv2.LINE_AA)
+
 def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) -> np.ndarray:
     out = frame_bgr.copy()
     for e in events:
@@ -337,10 +346,25 @@ def draw_boxes(frame_bgr: np.ndarray, events: list, show_labels: bool = True) ->
         color = ((37 * gid) % 255, (17 * gid) % 255, (97 * gid) % 255)  # BGR
         cv2.rectangle(out, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
         if show_labels:
-            label = f"{e.get('event_type','')}: {e.get('confidence', 0):.2f}"
-            cv2.putText(out, label, (int(x1), max(0, int(y1) - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+            # class type prefers vehicle_type; fall back to event_type if missing
+            class_type = (e.get('vehicle_type') or e.get('event_type') or 'unknown')
+            gid = e.get('global_id', '')
+            zone = e.get('curb_zone_id', '')
+            # Optional: keep confidence + event_type for context
+            conf = e.get('confidence', None)
+            evt  = e.get('event_type', '')
+        
+            line1 = f"{class_type} | gid:{gid}"
+            line2 = f"zone:{zone}" + (f" | {evt}:{conf:.2f}" if isinstance(conf, (int, float)) else (f" | {evt}" if evt else ""))
+        
+            # anchor near top-left of the bbox; keep inside frame
+            x_text = int(x1)
+            y_text1 = max(12, int(y1) - 4)          # first line
+            y_text2 = y_text1 + 14                   # second line below it
+        
+            _put_label_with_bg(out, line1, (x_text, y_text1), color)
+            _put_label_with_bg(out, line2, (x_text, y_text2), color)
     return out
-
 
 def ms_to_frame(ts_ms: int, start_ms: int, fps: float) -> int:
     if fps <= 0:
